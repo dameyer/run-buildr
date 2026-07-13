@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Builder — Create Account</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f4f4f5; color: #18181b; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 2rem; width: 320px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    h1 { font-size: 1.1rem; margin-bottom: 1.5rem; color: #18181b; }
+    label { display: block; font-size: 0.8rem; color: #71717a; margin-bottom: 0.3rem; }
+    input[type=text], input[type=password] {
+      display: block; width: 100%; background: #fff; border: 1px solid #d4d4d8;
+      color: #18181b; padding: 0.5rem 0.65rem; border-radius: 4px; font-size: 0.9rem;
+      margin-bottom: 1rem; outline: none;
+    }
+    input:focus { border-color: #71717a; }
+    .btn { display: block; width: 100%; background: #dc2626; color: #fff; border: none; padding: 0.6rem; border-radius: 4px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #b91c1c; }
+    .error { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; font-size: 0.8rem; padding: 0.5rem 0.65rem; border-radius: 4px; margin-bottom: 1rem; }
+    .card-footer { margin-top: 1rem; text-align: center; font-size: 0.8rem; color: #71717a; }
+    .card-footer a { color: #3f3f46; text-decoration: none; }
+    .card-footer a:hover { color: #18181b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Create Account</h1>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/register">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" autofocus>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="new-password">
+      <label for="invite_code">Invite Code</label>
+      <input type="text" id="invite_code" name="invite_code" autocomplete="off">
+      <button type="submit" class="btn">Create Account</button>
+    </form>
+    <div class="card-footer"><a href="/login">← Back to sign in</a></div>
+  </div>
+</body>
+</html>

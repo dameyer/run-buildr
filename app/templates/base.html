@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Run Builder{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    :root {
+      --bg:           #f4f4f5;
+      --surface:      #ffffff;
+      --surface-2:    #f9f9fa;
+      --border:       #e4e4e7;
+      --border-2:     #efefef;
+      --text-1:       #18181b;
+      --text-2:       #3f3f46;
+      --text-3:       #71717a;
+      --text-4:       #a1a1aa;
+      --input-bg:     #ffffff;
+      --input-border: #d4d4d8;
+      --red:          #dc2626;
+      --red-hover:    #b91c1c;
+      --blue:         #1d4ed8;
+      --blue-hover:   #1e40af;
+      --green-bg:            #f0fdf4;
+      --green-text:          #16a34a;
+      --green-text-dark:     #15803d;
+      --green-border:        #86efac;
+      --green-border-light:  #bbf7d0;
+      --danger-bg:           #fef2f2;
+      --danger-border:       #fca5a5;
+      --danger-hover-bg:     #fee2e2;
+      --danger-hover-border: #f87171;
+      --accent-bg:           #dbeafe;
+      --accent-bg-light:     #eff6ff;
+      --accent-border:       #93c5fd;
+      --accent-hover-bg:     #bfdbfe;
+      --accent-hover-border: #60a5fa;
+      --chart-grid:          #e8e8eb;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text-1); min-height: 100vh; }
+
+    header {
+      padding: 0.9rem 1.5rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.01em; }
+    .status-pill {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      background: var(--surface-2);
+      color: var(--text-4);
+      border: 1px solid var(--border);
+    }
+    .status-pill.connected { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
+    header a.nav-link { color: var(--text-3); font-size: 0.8rem; text-decoration: none; }
+    header a.nav-link:hover { color: var(--text-1); }
+    header a.nav-link:first-of-type { margin-left: auto; }
+    header button.nav-link { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; color: var(--text-3); font-size: 0.8rem; }
+    header button.nav-link:hover { color: var(--text-1); }
+
+    main { padding: 1.25rem 1.5rem; }
+    @media (max-width: 600px) { main { padding: 0.75rem; } }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header>
+    <a href="/" style="text-decoration:none;color:inherit;"><h1>Run Builder</h1></a>
+    <span id="wahoo-status" class="status-pill" onclick="wahooPillClick()" style="cursor:pointer;" title="Click to connect / disconnect">● Wahoo</span>
+    <span id="garmin-status" class="status-pill" onclick="garminPillClick()" style="cursor:pointer;" title="Click to connect / disconnect">● Garmin</span>
+    <a href="/calendar" class="nav-link">Calendar</a>
+    <a href="/analysis" class="nav-link">Analysis</a>
+    {% if request.session.get("is_admin") %}
+    <a href="/admin" class="nav-link">Admin</a>
+    {% endif %}
+    <form action="/logout" method="post" style="margin:0;">
+      <button type="submit" class="nav-link">Sign out</button>
+    </form>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <!-- Garmin connect modal -->
+  <div id="garmin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:1.5rem;width:320px;max-width:90vw;box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+      <div style="font-size:0.85rem;font-weight:600;color:#18181b;margin-bottom:1rem;">Connect Garmin</div>
+      <div id="garmin-modal-body">
+        <input id="garmin-email" type="email" placeholder="Garmin email" autocomplete="username"
+          style="display:block;width:100%;background:#fff;border:1px solid #d4d4d8;color:#18181b;padding:0.5rem 0.65rem;border-radius:4px;font-size:0.85rem;margin-bottom:0.6rem;outline:none;box-sizing:border-box;">
+        <input id="garmin-password" type="password" placeholder="Password" autocomplete="current-password"
+          style="display:block;width:100%;background:#fff;border:1px solid #d4d4d8;color:#18181b;padding:0.5rem 0.65rem;border-radius:4px;font-size:0.85rem;margin-bottom:0.6rem;outline:none;box-sizing:border-box;">
+        <div id="garmin-mfa-row" style="display:none;">
+          <input id="garmin-mfa" type="text" placeholder="2FA code" inputmode="numeric"
+            style="display:block;width:100%;background:#fff;border:1px solid #d4d4d8;color:#18181b;padding:0.5rem 0.65rem;border-radius:4px;font-size:0.85rem;margin-bottom:0.6rem;outline:none;box-sizing:border-box;">
+        </div>
+        <div id="garmin-modal-err" style="color:#dc2626;font-size:0.78rem;margin-bottom:0.6rem;display:none;"></div>
+        <div style="display:flex;gap:0.5rem;">
+          <button onclick="submitGarminConnect()" style="flex:1;background:#dc2626;color:#fff;border:none;padding:0.5rem;border-radius:4px;font-size:0.85rem;cursor:pointer;font-weight:600;">Connect</button>
+          <button onclick="closeGarminModal()" style="background:#f4f4f5;color:#3f3f46;border:1px solid #e4e4e7;padding:0.5rem 0.75rem;border-radius:4px;font-size:0.85rem;cursor:pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let _garminNeedsMfa = false;
+
+    let _wahooConnected = false;
+    fetch('/auth/wahoo/status', {cache: 'no-store'}).then(r => r.json()).then(d => {
+      const el = document.getElementById('wahoo-status');
+      _wahooConnected = d.connected;
+      if (d.connected) el.classList.add('connected');
+      updateWahooNote();
+    });
+
+    // Show the "authorize before creating a workout" note (editor page only)
+    // whenever Wahoo isn't connected.
+    function updateWahooNote() {
+      const note = document.getElementById('wahoo-auth-note');
+      if (note) note.style.display = _wahooConnected ? 'none' : '';
+    }
+
+    function wahooPillClick() {
+      if (_wahooConnected) {
+        if (confirm('Disconnect Wahoo?')) disconnectWahoo();
+        return;
+      }
+      // Not connected → start the OAuth flow. On the editor page, stash any
+      // in-progress workout so it survives the round-trip (restored from
+      // pendingLoad after the callback redirects back here).
+      if (typeof buildPlan === 'function') {
+        const plan = buildPlan();
+        if (plan.intervals && plan.intervals.length) {
+          sessionStorage.setItem('pendingLoad', JSON.stringify({ plan_json: plan }));
+        }
+      }
+      window.location.href = '/auth/wahoo';
+    }
+
+    async function disconnectWahoo() {
+      await fetch('/auth/wahoo/disconnect', { method: 'POST' });
+      _wahooConnected = false;
+      document.getElementById('wahoo-status').classList.remove('connected');
+      updateWahooNote();
+    }
+
+    let _garminConnected = false;
+    fetch('/auth/garmin/status', {cache: 'no-store'}).then(r => r.json()).then(d => {
+      const el = document.getElementById('garmin-status');
+      _garminConnected = d.connected;
+      if (d.connected) { el.textContent = '● Garmin'; el.classList.add('connected'); }
+    });
+
+    function garminPillClick() {
+      if (_garminConnected) {
+        if (confirm('Disconnect Garmin?')) disconnectGarmin();
+      } else {
+        openGarminModal();
+      }
+    }
+
+    async function disconnectGarmin() {
+      await fetch('/auth/garmin/disconnect', { method: 'POST' });
+      _garminConnected = false;
+      const el = document.getElementById('garmin-status');
+      el.classList.remove('connected');
+    }
+
+    function openGarminModal() {
+      _garminNeedsMfa = false;
+      document.getElementById('garmin-mfa-row').style.display = 'none';
+      document.getElementById('garmin-modal-err').style.display = 'none';
+      document.getElementById('garmin-modal').style.display = 'flex';
+      document.getElementById('garmin-email').focus();
+    }
+    function closeGarminModal() {
+      document.getElementById('garmin-modal').style.display = 'none';
+    }
+
+    async function submitGarminConnect() {
+      const email = document.getElementById('garmin-email').value.trim();
+      const password = document.getElementById('garmin-password').value;
+      const mfa = document.getElementById('garmin-mfa').value.trim();
+      const errEl = document.getElementById('garmin-modal-err');
+      const connectBtn = document.querySelector('#garmin-modal-body button');
+      errEl.style.display = 'none';
+      connectBtn.disabled = true;
+      connectBtn.textContent = 'Connecting…';
+
+      const url = _garminNeedsMfa ? '/auth/garmin/connect/mfa' : '/auth/garmin/connect';
+      const body = _garminNeedsMfa ? { email, password, mfa_code: mfa } : { email, password };
+
+      try {
+        const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.detail || 'Error'; errEl.style.display = 'block'; return; }
+        if (data.needs_mfa) {
+          _garminNeedsMfa = true;
+          document.getElementById('garmin-mfa-row').style.display = 'block';
+          document.getElementById('garmin-mfa').focus();
+          return;
+        }
+        closeGarminModal();
+        _garminConnected = true;
+        document.getElementById('garmin-status').classList.add('connected');
+        if (window._garminRetryPush && typeof pushGarmin === 'function') {
+          window._garminRetryPush = false;
+          pushGarmin();
+        }
+      } catch(e) {
+        errEl.textContent = 'Network error'; errEl.style.display = 'block';
+      } finally {
+        connectBtn.disabled = false;
+        connectBtn.textContent = 'Connect';
+      }
+    }
+
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

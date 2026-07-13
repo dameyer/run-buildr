@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 1rem;
+    max-width: 1100px;
+  }
+
+  .wahoo-auth-note {
+    max-width: 1100px;
+    margin-bottom: 1rem;
+    padding: 0.6rem 0.85rem;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    color: #92400e;
+    font-size: 0.8rem;
+  }
+  .wahoo-auth-link {
+    color: #b45309;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .panel-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-4);
+    padding: 0.6rem 0.75rem 0;
+  }
+
+  #workout-name {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-1);
+    font-family: 'Menlo', 'Courier New', monospace;
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    box-sizing: border-box;
+  }
+  #workout-name:focus { border-bottom-color: var(--text-3); }
+
+  .iv-cols {
+    display: grid;
+    grid-template-columns: 16px 1fr 120px 80px 44px 30px;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.68rem;
+    color: var(--text-4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-top: 1px solid var(--border-2);
+  }
+
+  #intervals-list { padding: 0.5rem 0.75rem; min-height: 60px; }
+  .iv-empty { color: var(--text-4); font-size: 0.82rem; padding: 0.3rem 0; }
+
+  .iv-row {
+    display: grid;
+    grid-template-columns: 16px 1fr 120px 80px 44px 30px;
+    gap: 0.4rem;
+    align-items: center;
+    margin-bottom: 0.35rem;
+  }
+
+  .iv-len-cell { display: flex; gap: 3px; align-items: center; }
+  .iv-len-type { width: 36px !important; flex-shrink: 0; padding: 0.3rem 0.1rem !important; font-size: 0.72rem !important; text-align: center; }
+  .iv-len-val  { flex: 1; min-width: 0; width: auto !important; }
+
+  .iv-row select,
+  .iv-row input[type=text],
+  .iv-row input[type=number] {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-1);
+    padding: 0.3rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.82rem;
+    font-family: 'Menlo', monospace;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .iv-row input:focus, .iv-row select:focus { border-color: var(--text-3); }
+  .iv-row.iv-highlight { background: var(--accent-bg-light); border-radius: 3px; outline: 1px solid var(--accent-border); }
+  .iv-drag {
+    cursor: grab;
+    color: var(--border);
+    font-size: 0.85rem;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; line-height: 1;
+  }
+  .iv-drag:hover { color: var(--text-3); }
+  .iv-drag:active { cursor: grabbing; }
+  .iv-row.iv-drag-over,
+  .iv-repeat.iv-drag-over { border-top: 2px solid var(--accent-hover-border); }
+  .iv-row input[type=number] { -moz-appearance: textfield; }
+  .iv-row input[type=number]::-webkit-inner-spin-button,
+  .iv-row input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .iv-del {
+    background: none;
+    border: 1px solid var(--danger-border);
+    color: var(--red);
+    border-radius: 3px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    width: 100%;
+    line-height: 1;
+  }
+  .iv-del:hover { background: var(--danger-hover-bg); border-color: var(--danger-hover-border); }
+
+  .iv-repeat {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.5rem;
+    background: var(--surface-2);
+  }
+  .iv-repeat-hdr { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .iv-badge { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; flex: 1; }
+
+  .iv-repeats {
+    width: 46px; text-align: center;
+    background: var(--input-bg); border: 1px solid var(--input-border);
+    color: var(--text-1); padding: 0.25rem 0.3rem; border-radius: 3px;
+    font-family: 'Menlo', monospace; font-size: 0.82rem; outline: none;
+    -moz-appearance: textfield;
+  }
+  .iv-repeats::-webkit-inner-spin-button,
+  .iv-repeats::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .iv-repeats:focus { border-color: var(--text-3); }
+
+  .iv-x { color: var(--text-3); font-size: 0.85rem; }
+  .iv-children { padding-left: 0.5rem; }
+
+  .validation-bar {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.78rem;
+    border-top: 1px solid var(--border);
+    min-height: 2rem;
+    color: var(--text-3);
+  }
+  .validation-bar.ok  { color: var(--green-text); }
+  .validation-bar.ok.clickable { cursor: pointer; }
+  .validation-bar.ok.clickable:hover { color: var(--green-text-dark); }
+  .validation-bar.err { color: var(--red); }
+  #json-preview {
+    display: none;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    padding: 0.75rem;
+    overflow-x: auto;
+  }
+  #json-preview pre {
+    margin: 0;
+    font-family: 'Menlo', 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: #0f766e;
+    white-space: pre;
+  }
+
+  .side-panel { padding: 0.75rem; display: flex; flex-direction: column; gap: 1rem; }
+  .side-panel h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-4); margin-bottom: 0.4rem; }
+
+  .tpl-btn {
+    display: block; width: 100%;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text-2); padding: 0.45rem 0.65rem; border-radius: 4px;
+    cursor: pointer; text-align: left; font-size: 0.82rem; margin-bottom: 0.4rem;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .tpl-btn:hover { background: var(--bg); border-color: var(--text-4); }
+
+  .chart-panel { grid-column: 1 / -1; padding: 0.75rem; height: 190px; }
+
+  .actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; }
+  #schedule-date {
+    background: var(--input-bg); border: 1px solid var(--input-border);
+    color: var(--text-1); padding: 0.5rem 0.65rem; border-radius: 4px;
+    font-size: 0.85rem; outline: none; color-scheme: light;
+  }
+  #schedule-date:focus { border-color: var(--text-3); }
+  .btn-push {
+    background: var(--red); color: #fff; border: none;
+    padding: 0.55rem 1.4rem; border-radius: 4px; font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; transition: background 0.1s;
+  }
+  .btn-push:hover    { background: var(--red-hover); }
+  .btn-push:disabled { background: var(--border); color: var(--text-4); cursor: not-allowed; }
+  #push-status { font-size: 0.82rem; color: var(--text-3); }
+  .btn-push-garmin {
+    background: var(--blue); color: #fff; border: none;
+    padding: 0.55rem 1.4rem; border-radius: 4px; font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; transition: background 0.1s;
+  }
+  .btn-push-garmin:hover    { background: var(--blue-hover); }
+  .btn-push-garmin:disabled { background: var(--border); color: var(--text-4); cursor: not-allowed; }
+  .pace-window-wrap { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--text-3); }
+  .pace-window-wrap input {
+    width: 44px; background: var(--input-bg); border: 1px solid var(--input-border);
+    color: var(--text-1); padding: 0.3rem 0.4rem; border-radius: 3px;
+    font-size: 0.82rem; text-align: center; outline: none; -moz-appearance: textfield;
+  }
+  .pace-window-wrap input::-webkit-inner-spin-button,
+  .pace-window-wrap input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .pace-window-wrap input:focus { border-color: var(--text-3); }
+  .actions-divider { width: 1px; height: 1.5rem; background: var(--border); }
+
+  .history-panel { grid-column: 1 / -1; padding: 0.75rem; }
+  .history-panel h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-4); margin-bottom: 0.6rem; }
+  .history-empty { font-size: 0.82rem; color: var(--text-4); }
+  .history-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.4rem 0; border-bottom: 1px solid var(--border-2); font-size: 0.82rem;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-name { flex: 1; color: var(--text-2); }
+  .history-date { color: var(--text-3); font-size: 0.75rem; }
+  .btn-delete {
+    background: none; border: 1px solid var(--danger-border); color: var(--red);
+    padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; cursor: pointer;
+  }
+  .btn-delete:hover { background: var(--danger-hover-bg); border-color: var(--danger-hover-border); }
+  .btn-load {
+    background: none; border: 1px solid var(--green-border-light); color: var(--green-text);
+    padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; cursor: pointer;
+  }
+  .btn-load:hover { background: var(--green-bg); border-color: var(--green-border); }
+
+  @media (max-width: 600px) {
+    .iv-cols, .iv-row {
+      grid-template-columns: 0px 1fr 95px 60px 44px 24px;
+      gap: 0.25rem;
+    }
+    .iv-drag { display: none; }
+    .iv-cols span:first-child { display: none; }
+    .iv-children { padding-left: 0; }
+    .iv-len-type { width: 30px !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="wahoo-auth-note" class="wahoo-auth-note" style="display:none;">
+  Click <a class="wahoo-auth-link" onclick="wahooPillClick()">Wahoo</a> to authorize before creating a workout.
+</div>
+<div class="editor-grid">
+
+  <div class="panel">
+    <div class="panel-label">Workout Name</div>
+    <input type="text" id="workout-name" value="My Running Workout" spellcheck="false">
+    <div class="iv-cols">
+      <span></span><span>Type</span><span>Length</span><span>min/mi</span><span>grade %</span><span></span>
+    </div>
+    <div id="intervals-list"></div>
+    <div class="validation-bar" id="validation-bar" onclick="toggleJsonPreview()"></div>
+    <div id="json-preview"><pre id="json-pre"></pre></div>
+  </div>
+
+  <div class="panel side-panel">
+    <div>
+      <h3>Templates</h3>
+      <button class="tpl-btn" style="margin-bottom: 0.8rem;" onclick="insertTemplate('scaffold')">Reset Workout</button>
+      <button class="tpl-btn" onclick="insertTemplate('warmup')">+ Warmup</button>
+      <button class="tpl-btn" onclick="insertTemplate('run')">+ Run Interval</button>
+      <button class="tpl-btn" onclick="insertTemplate('walk')">+ Recovery</button>
+      <button class="tpl-btn" onclick="insertTemplate('repeat')">+ Repeat Block</button>
+      <button class="tpl-btn" onclick="insertTemplate('cooldown')">+ Cooldown</button>
+    </div>
+
+  </div>
+
+  <div class="panel chart-panel">
+    <canvas id="workout-chart"></canvas>
+  </div>
+
+  <div class="actions">
+    <input type="date" id="schedule-date">
+    <button class="btn-push" id="push-btn" onclick="pushWorkout()">Push to Wahoo</button>
+    <div class="actions-divider"></div>
+    <button class="btn-push-garmin" id="push-garmin-btn" onclick="pushGarmin()">Push to Garmin</button>
+    <div class="pace-window-wrap" title="Garmin: range from target for pace window">
+      ±<input type="number" id="pace-window" value="10" min="1" max="60">s/mi
+    </div>
+    <span id="push-status"></span>
+  </div>
+
+  <div class="panel history-panel">
+    <h3>Pushed Workouts</h3>
+    <div id="history-list"><span class="history-empty">No workouts pushed yet.</span></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/editor.js?v={{ cache_buster }}"></script>
+{% endblock %}

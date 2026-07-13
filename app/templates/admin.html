@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  .admin-wrap { max-width: 600px; }
+  .admin-wrap h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-bottom: 1rem; }
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+  }
+  .user-name { flex: 1; color: var(--text-1); font-size: 0.9rem; }
+  .user-badge {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--blue);
+    border: 1px solid var(--accent-border);
+    border-radius: 99px;
+    padding: 0.1rem 0.5rem;
+  }
+  .reset-form { display: flex; gap: 0.5rem; }
+  .reset-form input[type=password] {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-1);
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    outline: none;
+    width: 160px;
+  }
+  .reset-form input:focus { border-color: var(--text-3); }
+  .btn-reset {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-3);
+    padding: 0.35rem 0.7rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-reset:hover { background: var(--surface-2); border-color: var(--text-4); color: var(--text-1); }
+  .flash-error { color: var(--red); font-size: 0.82rem; margin-bottom: 0.75rem; }
+  .btn-promote {
+    background: none;
+    border: 1px solid var(--green-border);
+    color: var(--green-text);
+    padding: 0.35rem 0.7rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-promote:hover { background: var(--green-bg); color: var(--green-text-dark); border-color: var(--green-border); }
+  .btn-demote {
+    background: none;
+    border: 1px solid var(--danger-border);
+    color: var(--red);
+    padding: 0.35rem 0.7rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-demote:hover { background: var(--danger-hover-bg); color: var(--red); border-color: var(--danger-hover-border); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrap">
+  <h2>Users</h2>
+  {% if error %}
+  <div class="flash-error">{{ error }}</div>
+  {% endif %}
+  {% for user in users %}
+  <div class="user-row">
+    <span class="user-name">{{ user.username }}</span>
+    {% if user.is_admin %}<span class="user-badge">admin</span>{% endif %}
+    {% if user.id != request.session.get("user_id") %}
+    <form method="post" action="/admin/users/{{ user.id }}/toggle-admin">
+      {% if user.is_admin %}
+      <button type="submit" class="btn-demote">Remove admin</button>
+      {% else %}
+      <button type="submit" class="btn-promote">Make admin</button>
+      {% endif %}
+    </form>
+    {% endif %}
+    <form class="reset-form" method="post" action="/admin/users/{{ user.id }}/reset-password">
+      <input type="password" name="new_password" placeholder="New password" minlength="8" required>
+      <button type="submit" class="btn-reset">Reset password</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

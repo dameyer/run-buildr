@@ -24,7 +24,7 @@ async def list_completed(
     try:
         data = await wahoo.list_workouts(access_token, page=page, per_page=per_page)
     except WahooAPIError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.body)
+        raise HTTPException(status_code=e.http_status, detail=e.body)
 
     completed = [w for w in data.get("workouts", []) if w.get("workout_summary")]
     return {"workouts": completed, "total": len(completed)}
@@ -35,7 +35,7 @@ async def fit_data(wahoo_workout_id: str, access_token: str = Depends(require_wa
     try:
         workout = await wahoo.get_workout(wahoo_workout_id, access_token)
     except WahooAPIError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.body)
+        raise HTTPException(status_code=e.http_status, detail=e.body)
 
     fit_url = (workout.get("workout_summary") or {}).get("file", {}).get("url")
     if not fit_url:
@@ -44,7 +44,8 @@ async def fit_data(wahoo_workout_id: str, access_token: str = Depends(require_wa
     async with httpx.AsyncClient() as client:
         resp = await client.get(fit_url, follow_redirects=True, timeout=30)
         if not resp.is_success:
-            raise HTTPException(status_code=502, detail="Failed to download FIT file")
+            # 422, not 502 — Cloudflare replaces 5xx bodies with its own HTML page
+            raise HTTPException(status_code=422, detail="Failed to download FIT file")
         fit_bytes = resp.content
 
     result = _parse_fit(fit_bytes, workout)

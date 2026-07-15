@@ -20,6 +20,13 @@ class WahooAPIError(Exception):
         self.body = body
         super().__init__(f"Wahoo API {status_code}: {body}")
 
+    @property
+    def http_status(self) -> int:
+        """Status to re-emit from our endpoints. Upstream 5xx collapses to 422:
+        Cloudflare replaces 5xx responses with its own HTML page, which breaks
+        resp.json() in the browser (see CLAUDE.md)."""
+        return 422 if self.status_code >= 500 else self.status_code
+
 
 class WahooTokenExpiredError(Exception):
     pass

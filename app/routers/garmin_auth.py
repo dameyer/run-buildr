@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.ratelimit import allow
 from app.routers.login import current_user_id
 from app.services import garmin as garmin_svc
 
@@ -69,6 +70,10 @@ async def status(db: Session = Depends(get_db), user_id: int = Depends(current_u
 
 @router.post("/connect")
 async def connect(body: ConnectRequest, request: Request, db: Session = Depends(get_db), user_id: int = Depends(current_user_id)):
+    # These endpoints relay credentials to Garmin — throttle per user + IP so an
+    # invited account can't use the server as a credential-stuffing proxy.
+    if not allow(request, bucket=f"garmin-connect:{user_id}", max_attempts=5, window_s=600):
+        raise HTTPException(status_code=429, detail="Too many Garmin sign-in attempts. Please wait a few minutes and try again.")
 
     from garminconnect import Garmin, GarminConnectAuthenticationError
 
@@ -95,6 +100,8 @@ async def connect(body: ConnectRequest, request: Request, db: Session = Depends(
 
 @router.post("/connect/mfa")
 async def connect_mfa(body: MfaRequest, request: Request, db: Session = Depends(get_db), user_id: int = Depends(current_user_id)):
+    if not allow(request, bucket=f"garmin-mfa:{user_id}", max_attempts=5, window_s=600):
+        raise HTTPException(status_code=429, detail="Too many MFA attempts. Please wait a few minutes and try again.")
 
     nonce = request.session.get("garmin_mfa_nonce")
     if not nonce:

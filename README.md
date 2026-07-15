@@ -100,7 +100,9 @@ Garmin (email + password, MFA supported) from the header status pills.
 The app is a plain ASGI server — put it behind any TLS terminator / reverse
 proxy. The setup it was built for is a machine on a home network (no static IP,
 no port forwarding) exposed via a **Cloudflare Tunnel**, which also provides free
-TLS.
+TLS. Using nginx/Caddy/Traefik or anything else instead? Read
+[Deploying without Cloudflare](#deploying-without-cloudflare) — a couple of
+defaults assume Cloudflare and need adjusting.
 
 ### Production `.env`
 
@@ -171,6 +173,42 @@ app's own controls (configured in the Cloudflare dashboard):
 Keep `HTTPS_ONLY=true` so session cookies are `Secure`, and rely on
 `CF-Connecting-IP` for the real client address (see above).
 
+### Deploying without Cloudflare
+
+The Cloudflare-specific bits above degrade quietly if you swap in a different
+reverse proxy (nginx, Caddy, Traefik, …). What to know:
+
+- **The rate limiter will lump all your users together.** `app/ratelimit.py`
+  identifies clients by `CF-Connecting-IP` only — it does **not** read
+  `X-Forwarded-For` / `X-Real-IP`. Behind a generic proxy every request appears
+  to come from the proxy's own address, so the `/login`, `/register`, and Garmin
+  connect limits become **one shared bucket for everyone**: two people mistyping
+  passwords can lock the whole household out, and per-client brute-force
+  protection is effectively gone. Fix one of two ways:
+  - adapt `_client_ip()` in `app/ratelimit.py` to read your proxy's client-IP
+    header (keep the existing rule of only trusting it when the direct peer is
+    loopback/private), or
+  - enforce equivalent per-IP limits at the proxy itself (nginx `limit_req`,
+    Caddy `rate_limit`) and accept the shared in-app bucket as a coarse backstop.
+- **You lose the whole edge-protection layer.** The WAF, bot filtering, and edge
+  rate limiting described under [Edge hardening](#edge-hardening-cloudflare) are
+  Cloudflare dashboard features. Without them the in-process limiter is the
+  *only* brute-force control, and the app itself sets **no security headers** —
+  add them at your proxy: `Strict-Transport-Security`, `X-Frame-Options: DENY`
+  (or CSP `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`.
+- **Tell uvicorn about your proxy.** Run with
+  `--proxy-headers --forwarded-allow-ips=127.0.0.1` (or your proxy's address) so
+  forwarded client IPs and the `https` scheme are honored.
+- **Never expose uvicorn directly to the internet.** Always terminate TLS in
+  front of it — with `HTTPS_ONLY=true` the session cookie is `Secure` and simply
+  won't be sent over plain HTTP, and without a proxy there is no header/WAF layer
+  at all.
+- **Unchanged either way:** `HTTPS_ONLY=true` behind any TLS terminator,
+  `REDIRECT_URI` must match your public callback URL, and the single-worker
+  requirement still applies. The 422-instead-of-502 error convention is a
+  Cloudflare workaround and is harmless on other setups.
+
 ## Tests
 
 ```bash
@@ -188,9 +226,11 @@ uv run pytest
   bumps the version, immediately invalidating all outstanding cookies for the
   account (signing out on one device signs out everywhere; a password change
   keeps the current device signed in).
-- **Rate limiting** — login and registration are rate-limited per client IP at the
-  app level (`app/ratelimit.py`), backed by a Cloudflare edge rate-limiting rule
-  in production.
+- **Rate limiting** — login, registration, and the Garmin connect endpoints are
+  rate-limited per client IP at the app level (`app/ratelimit.py`), backed by a
+  Cloudflare edge rate-limiting rule in production. Client IPs come from
+  `CF-Connecting-IP` — on a non-Cloudflare setup see
+  [Deploying without Cloudflare](#deploying-without-cloudflare).
 - **CSRF** — session cookies are `SameSite=lax` and all state-changing routes are
   POST.
 - **XSS** — user/external strings are escaped before rendering.

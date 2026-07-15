@@ -69,7 +69,7 @@ async def push(
     try:
         plan_data = await wahoo.push_plan(body.plan, access_token)
     except WahooAPIError as e:
-        raise HTTPException(status_code=e.status_code, detail=f"Wahoo /v1/plans error: {e.body}")
+        raise HTTPException(status_code=e.http_status, detail=f"Wahoo /v1/plans error: {e.body}")
 
     plan_id = str(plan_data["id"])
     scheduled_at = body.scheduled_at or utcnow().isoformat() + "Z"
@@ -77,7 +77,7 @@ async def push(
     try:
         workout_data = await wahoo.push_workout(plan_id, body.plan, scheduled_at, access_token)
     except WahooAPIError as e:
-        raise HTTPException(status_code=e.status_code, detail=f"Wahoo /v1/workouts error: {e.body}")
+        raise HTTPException(status_code=e.http_status, detail=f"Wahoo /v1/workouts error: {e.body}")
 
     saved = _save_workout(
         db,
@@ -99,7 +99,7 @@ async def wahoo_raw(
     try:
         return await wahoo.list_workouts(access_token, page=page, per_page=per_page)
     except WahooAPIError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.body)
+        raise HTTPException(status_code=e.http_status, detail=e.body)
 
 
 @router.get("/history")
@@ -128,8 +128,8 @@ async def history(
 
 @router.get("/calendar")
 async def calendar_data(
-    year: int,
-    month: int,
+    year: int = Query(..., ge=1970, le=2100),
+    month: int = Query(..., ge=1, le=12),
     db: Session = Depends(get_db),
     user_id: int = Depends(current_user_id),
 ):

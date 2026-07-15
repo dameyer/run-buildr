@@ -16,6 +16,18 @@ class Settings(BaseSettings):
 
     invite_code: str
 
+    @field_validator("session_secret")
+    @classmethod
+    def _session_secret_strong(cls, v: str) -> str:
+        if not v or v == "change_this_to_a_random_string" or len(v) < 32:
+            raise ValueError(
+                "SESSION_SECRET must be a random string of at least 32 characters "
+                "(the signing key for session cookies — a guessable value allows forging "
+                'any user\'s session). Generate one with: python -c "import secrets; '
+                'print(secrets.token_urlsafe(32))"'
+            )
+        return v
+
     @field_validator("invite_code")
     @classmethod
     def _invite_code_set(cls, v: str) -> str:

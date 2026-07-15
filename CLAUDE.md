@@ -40,7 +40,7 @@ app/
 
 | Var | Notes |
 |-----|-------|
-| `SESSION_SECRET` | Required; no default |
+| `SESSION_SECRET` | Required; validated at startup (min 32 chars, placeholder rejected). Generate: `uv run python -c "import secrets; print(secrets.token_urlsafe(32))"` |
 | `INVITE_CODE` | Required; validated non-placeholder |
 | `WAHOO_CLIENT_ID` / `WAHOO_CLIENT_SECRET` | Wahoo OAuth app creds |
 | `REDIRECT_URI` | Wahoo OAuth callback URL |
@@ -62,7 +62,7 @@ Tokens are **always encrypted at rest** via `app/services/crypto.py` (Fernet; `F
 ## Non-obvious gotchas
 
 ### Cloudflare + error responses
-Use **422** (not 502) for any endpoint that wraps an external API and might fail. Cloudflare intercepts 502 and returns its own HTML error page, which breaks `resp.json()` in the browser.
+Use **422** (not 502) for any endpoint that wraps an external API and might fail. Cloudflare intercepts 502 and returns its own HTML error page, which breaks `resp.json()` in the browser. `WahooAPIError.http_status` handles this for Wahoo wrappers (collapses upstream 5xx → 422; 4xx passes through).
 
 ### JS cache busting
 `main.py` sets `cache_buster = str(int(time.time()))` and injects it into Jinja2 globals. Templates reference it as `?v={{ cache_buster }}`. It resets on process restart — no manual version bumping needed.
@@ -101,7 +101,7 @@ Pace/elevation charts use **distance** as x-axis. All other charts (cadence, HR,
 
 - **Token encryption:** `FERNET_KEY` required; all Wahoo/Garmin tokens encrypted at rest (`app/services/crypto.py`). Undecryptable rows → treated as disconnected (reconnect).
 - **Session revocation:** `users.session_version` is checked on every authenticated request; logout and password change/reset bump it, killing all outstanding session cookies (see gotcha "Auth — session revocation").
-- **Rate limiting:** `app/ratelimit.py` — in-memory fixed-window limiter on `/login` (10/5min) and `/register` (5/10min), keyed on `CF-Connecting-IP` (falls back to socket IP for local dev). Process-local → single-worker only.
+- **Rate limiting:** `app/ratelimit.py` — in-memory fixed-window limiter on `/login` (10/5min), `/register` (5/10min), and the Garmin credential-relay endpoints `/auth/garmin/connect` + `/connect/mfa` (5/10min, keyed per user + IP). `CF-Connecting-IP` is only trusted when the direct peer is loopback/private (i.e. via the local cloudflared tunnel) — otherwise the socket IP is used, so a direct hit can't spoof fresh buckets. `X-Forwarded-For` is deliberately not read; behind a non-Cloudflare proxy all clients would share one bucket (see README → "Deploying without Cloudflare"). Process-local → single-worker only.
 - **Edge (Cloudflare):** production layers dashboard-configured protections on top of the app — WAF managed ruleset, edge rate-limiting on `/login` & `/register`, Bot Fight Mode, and SSL/TLS Full (Strict). Exact rate-limit thresholds live in the Cloudflare dashboard, not the repo.
 - **CSRF:** `SameSite=lax` blocks the session cookie on cross-site POSTs; all state-changing endpoints are POST (incl. `/logout`, which posts a form from the nav).
 - **Stored XSS:** all user/external strings interpolated into `innerHTML` in `editor.js` / `analysis.js` go through `escapeHtml()`. Jinja autoescape covers templates.
@@ -109,5 +109,4 @@ Pace/elevation charts use **distance** as x-axis. All other charts (cadence, HR,
 ## Pending / known issues
 
 - Lap table shows raw FIT elapsed time (includes pauses) — charts use compressed active time but table doesn't.
-- `4:60` formatting bug in `formatDuration` (60 seconds not rolling to next minute).
 - Terrain simulation (Lateral/L+V) not supported via Wahoo API (only `grade` control accepted).

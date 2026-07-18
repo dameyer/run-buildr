@@ -80,11 +80,16 @@ const validationBar = document.getElementById('validation-bar');
 
 // ── Duration helpers ──────────────────────────────────────────────────────────
 
+// Mirrors _MAX_TRIGGER_VALUE[TIME] in schemas.py (24 h, seconds).
+const MAX_DURATION_SECS = 86400;
+
+// Accepts "mm:ss" or whole minutes; returns 0 for anything else
+// (decimals like "1609.344" are a unit mix-up, not a duration).
 function parseDuration(val) {
-  const m = val.trim().match(/^(\d{1,3}):(\d{2})$/);
+  val = val.trim();
+  const m = val.match(/^(\d{1,4}):([0-5]\d)$/);
   if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-  const n = parseInt(val);
-  return isNaN(n) || n <= 0 ? 0 : n * 60;
+  return /^\d{1,4}$/.test(val) ? parseInt(val) * 60 : 0;
 }
 
 function fmtDuration(secs) {
@@ -94,10 +99,12 @@ function fmtDuration(secs) {
 
 // ── Pace helpers ──────────────────────────────────────────────────────────────
 
+// Accepts "mm:ss" or whole minutes per mile; returns 0 for anything else.
 function paceToMs(val) {
-  const m = val.trim().match(/^(\d{1,3}):(\d{2})$/);
-  if (!m) return 0;
-  const secs = parseInt(m[1]) * 60 + parseInt(m[2]);
+  val = val.trim();
+  const m = val.match(/^(\d{1,3}):([0-5]\d)$/);
+  const secs = m ? parseInt(m[1]) * 60 + parseInt(m[2])
+    : /^\d{1,3}$/.test(val) ? parseInt(val) * 60 : 0;
   return secs > 0 ? 1609.344 / secs : 0;
 }
 
@@ -184,7 +191,7 @@ function renderInterval(iv, parentId = null) {
     </select>
     ${isDist
       ? `<input type="number" class="iv-len-val" value="${iv.distanceM}" min="1" step="10" onchange="updateField(${iv.id},${pid},'distanceM',+this.value)">`
-      : `<input type="text" class="iv-len-val" value="${fmtDuration(iv.durationSecs)}" onchange="updateDur(${iv.id},${pid},this.value)">`
+      : `<input type="text" class="iv-len-val" value="${fmtDuration(iv.durationSecs)}" onchange="updateDur(${iv.id},${pid},this.value,this)">`
     }
   </div>`;
 
@@ -197,7 +204,7 @@ function renderInterval(iv, parentId = null) {
     ${typeSelect(iv.id, pid, iv.type)}
     ${lenCell}
     <input type="text" class="iv-speed" value="${msToPace(iv.speedMs)}"
-      onchange="updatePace(${iv.id},${pid},this.value)">
+      onchange="updatePace(${iv.id},${pid},this.value,this)">
     <input type="number" class="iv-grade" value="${iv.gradePct}" step="0.5"
       onchange="updateField(${iv.id},${pid},'gradePct',+this.value)">
     <button class="iv-del" onclick="removeIv(${iv.id},${pid})">×</button>
@@ -227,9 +234,19 @@ function updateField(id, parentId, field, value) {
   if (iv) { iv[field] = value; syncPreview(); }
 }
 
-function updateDur(id, parentId, val) {
+function updateDur(id, parentId, val, input) {
   const secs = parseDuration(val);
-  if (secs > 0) updateField(id, parentId, 'durationSecs', secs);
+  if (secs <= 0 || secs > MAX_DURATION_SECS) {
+    input.classList.add('iv-invalid');
+    input.title = secs > MAX_DURATION_SECS
+      ? 'Too long — max 24 hours'
+      : 'Enter mm:ss (e.g. 12:30) or whole minutes';
+    return;
+  }
+  input.classList.remove('iv-invalid');
+  input.title = '';
+  input.value = fmtDuration(secs);
+  updateField(id, parentId, 'durationSecs', secs);
 }
 
 function updateLenType(id, parentId, val) {
@@ -237,9 +254,17 @@ function updateLenType(id, parentId, val) {
   if (iv) { iv.lengthType = val; render(); }
 }
 
-function updatePace(id, parentId, val) {
+function updatePace(id, parentId, val, input) {
   const ms = paceToMs(val);
-  if (ms > 0) updateField(id, parentId, 'speedMs', ms);
+  if (ms <= 0) {
+    input.classList.add('iv-invalid');
+    input.title = 'Enter pace as mm:ss per mile (e.g. 7:40)';
+    return;
+  }
+  input.classList.remove('iv-invalid');
+  input.title = '';
+  input.value = msToPace(ms);
+  updateField(id, parentId, 'speedMs', ms);
 }
 
 function removeIv(id, parentId) {
@@ -562,11 +587,22 @@ function loadFromHistory(id) {
 
 // ── Push ──────────────────────────────────────────────────────────────────────
 
+// A red field holds text that was never applied to the plan — pushing now
+// would silently send the previous value.
+function blockedByInvalidField() {
+  if (!document.querySelector('.iv-invalid')) return false;
+  const statusEl = document.getElementById('push-status');
+  statusEl.style.color = '#f44336';
+  statusEl.textContent = 'Fix the highlighted field first';
+  return true;
+}
+
 async function pushWorkout() {
   if (!state.intervals.length) {
     document.getElementById('push-status').textContent = 'Add steps first';
     return;
   }
+  if (blockedByInvalidField()) return;
   const plan = buildPlan();
   const dateVal = document.getElementById('schedule-date').value;
   const scheduled_at = dateVal ? new Date(dateVal + 'T00:00:00').toISOString() : null;
@@ -613,6 +649,7 @@ async function pushGarmin() {
     document.getElementById('push-status').textContent = 'Add steps first';
     return;
   }
+  if (blockedByInvalidField()) return;
   const plan = buildPlan();
   const window_s = parseFloat(document.getElementById('pace-window').value) || 10;
   const dateVal = document.getElementById('schedule-date').value;

@@ -6,7 +6,11 @@ Another way to create and push workouts to your KICKR Run and/or get raw workout
 
 - **Editor** — build interval workouts (warmup, run, recovery, cooldown, repeat
   blocks) with per-interval pace and grade; visualize with Chart.js; push to
-  Wahoo and/or Garmin.
+  Wahoo and/or Garmin. 
+	- distance in meters
+	- time in minutes:seconds
+	- pace in minutes/mile
+	- incline in %
 - **Calendar** — monthly view of pushed workouts; click to reload one into the editor.
 - **Analysis** — parse completed Wahoo/Garmin FIT files into pace, cadence,
   heart rate, vertical oscillation, stance time, stride, grade, and elevation

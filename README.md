@@ -55,15 +55,15 @@ cp .env.example .env          # then fill in the values (see below)
 
 ### Configure `.env`
 
-| Var | Required | Notes |
-|-----|----------|-------|
-| `SESSION_SECRET` | ✅ | Random string used to sign session cookies. |
-| `INVITE_CODE` | ✅ | Shared code required to register. Must not be the placeholder. |
-| `FERNET_KEY` | ✅ | Encrypts Wahoo/Garmin tokens at rest. See below. |
-| `WAHOO_CLIENT_ID` / `WAHOO_CLIENT_SECRET` | for Wahoo | From your Wahoo Cloud API app. |
-| `REDIRECT_URI` | for Wahoo | OAuth callback URL, e.g. `http://127.0.0.1:9000/auth/wahoo/callback`. |
-| `HTTPS_ONLY` | | `true` in production (behind HTTPS), `false` for local dev. |
-| `DATABASE_URL` | | Defaults to `sqlite:///./kickr.db`. |
+| Var                                       | Required  | Notes                                                                               |
+| ----------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `SESSION_SECRET`                          | ✅         | Random string used to sign session cookies.                                         |
+| `INVITE_CODE`                             | ✅         | Shared code required to register. Must not be the placeholder.                      |
+| `FERNET_KEY`                              | ✅         | Encrypts Wahoo/Garmin tokens at rest. No completed workout data stored. See below.  |
+| `WAHOO_CLIENT_ID` / `WAHOO_CLIENT_SECRET` | for Wahoo | From your Wahoo Cloud API app.                                                      |
+| `REDIRECT_URI`                            | for Wahoo | OAuth callback URL, e.g. `http://127.0.0.1:9000/auth/wahoo/callback`.               |
+| `HTTPS_ONLY`                              |           | `true` in production (behind HTTPS), `false` for local dev.                         |
+| `DATABASE_URL`                            |           | Defaults to `sqlite:///./kickr.db`.                                                 |
 
 ### Generating secrets
 

@@ -170,11 +170,9 @@ function renderAnalysis() {
 }
 
 function rawJsonString() {
-  // Wahoo's raw object is only the workout summary; append the parsed FIT file
-  // data (the run's per-record metrics + laps) that drove the analytics.
-  const display = activeSource === "wahoo"
-    ? { ...activeRaw, fit_file: { records: allRecords, laps: allLaps } }
-    : activeRaw;
+  // Both sources' raw objects are only the activity summary; append the parsed
+  // FIT file data (the run's per-record metrics + laps) that drove the analytics.
+  const display = { ...activeRaw, fit_file: { records: allRecords, laps: allLaps } };
   return JSON.stringify(display, null, 2);
 }
 

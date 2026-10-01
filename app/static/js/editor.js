@@ -443,8 +443,14 @@ function formatTime(s) {
 // walking the steps and interpolating inside the one that crosses it.
 const DIST_STEPS_SHORT = [50, 100, 250];
 const DIST_STEPS_LONG  = [500, 1000, 2000, 5000, 10000];
+// Clearance a round mark needs from the finish total, else it is dropped: half of
+// each label at 10px plus a readable gap. Decided here, once, rather than at draw
+// time — Chart.js caches label items per update, so geometry-dependent label text
+// can fall out of step with the grid pass and print a label whose tick is hidden.
+const FINISH_CLEARANCE_PX = 54;
+const Y_AXIS_GUTTER_PX    = 90;   // the mph and grade axes either side of the plot
 
-function distanceMarks(steps) {
+function distanceMarks(steps, axisPx) {
   const total = steps.reduce((m, s) => m + s.speed * s.duration, 0);
   if (!(total > 0)) return [];
 
@@ -469,6 +475,16 @@ function distanceMarks(steps) {
     }
     t += step.duration;
     d = next;
+  }
+
+  // Finish total, mirroring the bound tick the time axis ends on. Exact figure,
+  // not a round one, so a workout aimed at 10 km doesn't read as 10 km at 9.98.
+  const last = marks[marks.length - 1];
+  if (last && t - last.t > 1e-6) {
+    // Pixels, not time: the axis is a time axis, so a mark's distance from the end
+    // scales with the plot width. Drop the round mark the total would collide with.
+    if ((t - last.t) / t * axisPx < FINISH_CLEARANCE_PX) marks.pop();
+    marks.push({ t, label: asKm ? `${(total / 1000).toFixed(2)} km` : `${Math.round(total)} m` });
   }
   return marks;
 }
@@ -519,7 +535,8 @@ function drawChart() {
   }
 
   const totalTime = t;
-  const distMarks = distanceMarks(steps);
+  const canvas = document.getElementById('workout-chart');
+  const distMarks = distanceMarks(steps, Math.max(canvas.clientWidth - Y_AXIS_GUTTER_PX, 160));
 
   function highlightRow(ivId) {
     document.querySelectorAll('.iv-row.iv-highlight').forEach(el => el.classList.remove('iv-highlight'));

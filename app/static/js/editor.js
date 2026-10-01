@@ -438,6 +438,41 @@ function formatTime(s) {
   return sec === 0 ? `${m}m` : `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+// Round-distance marks for the top axis, as {t: seconds, label}. Distance is not
+// proportional to time — pace changes per step — so each mark's time is found by
+// walking the steps and interpolating inside the one that crosses it.
+const DIST_STEPS_SHORT = [50, 100, 250];
+const DIST_STEPS_LONG  = [500, 1000, 2000, 5000, 10000];
+
+function distanceMarks(steps) {
+  const total = steps.reduce((m, s) => m + s.speed * s.duration, 0);
+  if (!(total > 0)) return [];
+
+  const ladder = total < 1000 ? DIST_STEPS_SHORT : DIST_STEPS_LONG;
+  const stepM = ladder.find(s => total / s <= 10) ?? ladder[ladder.length - 1];
+  const asKm = total >= 1000;
+  const decimals = stepM >= 1000 ? 0 : 1;
+
+  const marks = [];
+  let t = 0, d = 0, emitted = -1;
+  for (const step of steps) {
+    const next = d + step.speed * step.duration;
+    if (step.speed > 0) {
+      for (let m = Math.ceil(d / stepM) * stepM; m <= next + 1e-6; m += stepM) {
+        if (m <= emitted + 1e-6) continue;   // step boundary landing on a mark
+        marks.push({
+          t: t + (m - d) / step.speed,
+          label: m === 0 ? '0' : asKm ? `${(m / 1000).toFixed(decimals)} km` : `${Math.round(m)} m`,
+        });
+        emitted = m;
+      }
+    }
+    t += step.duration;
+    d = next;
+  }
+  return marks;
+}
+
 function flattenStateIntervals(intervals) {
   const steps = [];
   for (const iv of (intervals || [])) {
@@ -483,6 +518,9 @@ function drawChart() {
     t += step.duration;
   }
 
+  const totalTime = t;
+  const distMarks = distanceMarks(steps);
+
   function highlightRow(ivId) {
     document.querySelectorAll('.iv-row.iv-highlight').forEach(el => el.classList.remove('iv-highlight'));
     if (ivId != null) {
@@ -527,11 +565,25 @@ function drawChart() {
       scales: {
         x: {
           type: 'linear',
+          min: 0, max: totalTime,
           ticks: {
             color: '#a1a1aa', maxTicksLimit: 12, font: { size: 10 },
             callback: val => formatTime(Math.round(val)),
           },
           grid: { color: '#e8e8eb' },
+        },
+        // Distance, sharing the time axis's exact domain so the two line up
+        // pixel-for-pixel. Ticks sit at round distances, so their spacing is
+        // uneven — wide where the pace is slow, tight where it's fast.
+        x2: {
+          type: 'linear', position: 'top',
+          min: 0, max: totalTime,
+          afterBuildTicks: axis => { axis.ticks = distMarks.map(m => ({ value: m.t })); },
+          ticks: {
+            color: '#a1a1aa', font: { size: 10 }, autoSkip: false,
+            callback: (val, idx) => distMarks[idx]?.label ?? '',
+          },
+          grid: { drawOnChartArea: false },
         },
         y:  { ticks: { color: '#71717a', font: { size: 10 } }, grid: { color: '#e8e8eb' },
               title: { display: true, text: 'mph', color: '#a1a1aa', font: { size: 10 } } },
